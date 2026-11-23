@@ -13,7 +13,9 @@ has no network and cannot change a file on the host.
 
 Built while I reviewed [ItsNotRexed/Leonida](https://github.com/ItsNotRexed/Leonida), a repository with 4,425 open
 pull requests on 2026-11-23 at 21:58 CET. Write-up:
-[Testing open pull requests merged with `main`](https://github.com/maciejszulia/maciejszulia/blob/main/case-studies/leonida-merge-sweep.md).
+[Testing open pull requests merged with `main`](https://github.com/maciejszulia/maciejszulia/blob/main/case-studies/leonida-merge-sweep.md);
+time, energy and money saved, in Polish:
+[case study](https://github.com/maciejszulia/maciejszulia/blob/main/case-studies/leonida-oszczednosci.pl.md).
 
 ## Tools
 

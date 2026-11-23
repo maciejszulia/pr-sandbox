@@ -13,7 +13,8 @@ kontenerze Docker bez sieci, który nie zmienia żadnego pliku na komputerze.
 Narzędzie powstało przy review repozytorium [ItsNotRexed/Leonida](https://github.com/ItsNotRexed/Leonida), które
 miało 4425 otwartych pull requestów `[pomiar: API GitHuba, 2026-11-23, 21:58 CET]`. Opis przypadku:
 [Testowanie otwartych pull requestów scalonych z `main`](https://github.com/maciejszulia/maciejszulia/blob/main/case-studies/leonida-merge-sweep.md)
-(po angielsku). Grafy scaleń: [README po angielsku, sekcja Graphs](README.md#graphs).
+(po angielsku). Oszczędność czasu, energii i pieniędzy:
+[case study](https://github.com/maciejszulia/maciejszulia/blob/main/case-studies/leonida-oszczednosci.pl.md). Grafy scaleń: [README po angielsku, sekcja Graphs](README.md#graphs).
 
 ## Narzędzia
 

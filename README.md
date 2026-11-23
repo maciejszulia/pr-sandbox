@@ -88,7 +88,7 @@ Bisection over 1,176 first-parent commits of `main` found the merge that the PR 
 (31 s):
 
 ```mermaid
-gitGraph
+gitGraph TB:
   commit id: "d0835dd9 merge base: merged test passes"
   branch pr-4673
   commit id: "c92301ab PR 4673 head"
@@ -104,7 +104,7 @@ gitGraph
 train; bisection named PR #6123; round 2 rebuilt the train without it and every test passed:
 
 ```mermaid
-gitGraph
+gitGraph TB:
   commit id: "867d922f main"
   branch train
   checkout main

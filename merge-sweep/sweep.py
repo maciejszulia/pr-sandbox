@@ -60,9 +60,7 @@ def docker(tests, tree):
 def parse(out):
     applied, results = True, []
     for line in out.splitlines():
-        if line.startswith("APPLY_FAILED"):
-            applied = False
-        elif line.startswith("RESULT "):
+        if line.startswith("RESULT "):
             parts = line.split(" ", 3)
             results.append([int(parts[1]), parts[2], parts[3] if len(parts) > 3 else ""])
     if out == "TIMEOUT":

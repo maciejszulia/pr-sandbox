@@ -33,8 +33,10 @@ i7-7700HQ, Docker 29.10.0). Full numbers and the machine: [results/2026-11-23-le
 |---|---|
 | standard-library test files failing on `main` (of 438) | 16 |
 | open PRs with Python changes and tests | 1,670 |
-| PRs merge-checked in the first 20 minutes | 236 |
-| candidates: a test fails only after the merge | 6 |
+| PRs merge-checked (3 workers, 86 min) | 1,667 |
+| of them: merge conflict with `main` | 304 |
+| candidates: a test fails only after the merge | 37 files in 36 PRs |
+| candidates triaged so far: real defects / false positives | 4 / 1 |
 
 ## Quick start
 

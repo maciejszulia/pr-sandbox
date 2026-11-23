@@ -58,6 +58,8 @@ export SWEEP_REPO=<owner>/<repo> SWEEP_CLONE=~/lab/<repo>-sweep SWEEP_DIR=~/lab/
 merge-sweep/sweep.py prepare       # fetch main, list the PRs to check
 merge-sweep/sweep.py run           # results.jsonl, candidates.jsonl, baseline.json in SWEEP_DIR
 merge-sweep/merge-check <pr> <test file>
+merge-sweep/merge-bisect <pr> <test file>    # the main commit after which the merged test fails
+merge-sweep/train.py <pr> <pr> ...           # merge train: test many PRs merged together, drop each PR that breaks a test
 ```
 
 ## How it works
@@ -70,6 +72,82 @@ merge-sweep/merge-check <pr> <test file>
    and runs the test files the PR touches. A failing file is run once more on `main`; a candidate is a file that
    passes on `main` (or is new) and fails merged.
 3. `merge-sweep/merge-check` shows the full output of one candidate on `main`, merged and on the PR head.
+4. `merge-sweep/merge-bisect` bisects the first-parent history of `main` between the PR's merge base and the snapshot:
+   each step merges 1 `main` commit with the PR head and runs the test. The result names the merge on `main` that
+   the PR has to catch up with. A step whose merge conflicts is skipped for its nearest neighbour; the output says
+   whether the result is exact.
+5. `merge-sweep/train.py` merges a list of PRs onto `main` locally (`git merge-tree`, then `git commit-tree` with 2
+   parents), runs the test files of every merged PR once on the train tip, bisects each test that fails only on the
+   train, drops the PR that broke it and rebuilds, for at most 3 rounds. It pushes nothing: 1 push of the tip puts
+   the whole train on `main`, and GitHub marks every PR whose head reaches `main` as merged.
+
+## Graphs
+
+`merge-bisect` on PR #4673 (2026-11-23): the PR's test passes on the merge base and fails merged with the snapshot.
+Bisection over 1,176 first-parent commits of `main` found the merge that the PR has to catch up with in 11 steps
+(31 s):
+
+```mermaid
+gitGraph
+  commit id: "d0835dd9 merge base: merged test passes"
+  branch pr-4673
+  commit id: "c92301ab PR 4673 head"
+  checkout main
+  commit id: "109 commits on main"
+  commit id: "9dae26ab last pass"
+  commit id: "51013b44 merge of PR 3499: first fail" type: HIGHLIGHT
+  commit id: "1,066 commits on main"
+  commit id: "867d922f snapshot: merged test fails"
+```
+
+`train.py` on 5 PRs (2026-11-23, 94 s): round 1 merged all 5 and `tests/test_batch_glb.py` failed only on the
+train; bisection named PR #6123; round 2 rebuilt the train without it and every test passed:
+
+```mermaid
+gitGraph
+  commit id: "867d922f main"
+  branch train
+  checkout main
+  branch pr-7918
+  commit id: "a42003a8 PR 7918"
+  checkout main
+  branch pr-7914
+  commit id: "df8385bf PR 7914"
+  checkout main
+  branch pr-7912
+  commit id: "4fb091a9 PR 7912"
+  checkout main
+  branch pr-6123
+  commit id: "c38cae56 PR 6123: breaks test_batch_glb, dropped" type: REVERSE
+  checkout main
+  branch pr-7907
+  commit id: "ea1b1617 PR 7907"
+  checkout train
+  merge pr-7918
+  merge pr-7914
+  merge pr-7912
+  merge pr-7907 tag: "tip fe6cac47: tests pass"
+```
+
+```mermaid
+%%{init: {"flowchart": {"curve": "step"}}}%%
+flowchart TD
+  A["PR list in merge order"] --> B["git merge-tree: PR head onto the train tip"]
+  B --> C{"conflict?"}
+  C -->|yes| D["skip the PR"]
+  C -->|no| E["git commit-tree: merge commit with 2 parents"]
+  D --> F{"PRs left?"}
+  E --> F
+  F -->|yes| B
+  F -->|no| G["run the test files of every merged PR once on the tip"]
+  G --> H{"a test fails only on the train?"}
+  H -->|no| I["done: 1 push of the tip merges every PR"]
+  H -->|yes| J["bisect the test over the train"]
+  J --> K["drop the PR that broke it and rebuild, at most 3 rounds"]
+  K --> B
+```
+
+Which merge on `main` breaks which open PR: [results/2026-11-23-leonida.md](results/2026-11-23-leonida.md#which-merge-on-main-breaks-which-pr).
 
 ## Limits
 

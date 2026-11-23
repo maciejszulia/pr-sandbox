@@ -15,3 +15,5 @@ grep -qx 'changed' <<<"$out" || { echo "FAIL: /work is not writable"; exit 1; }
 grep -qx 'true' <<<"$out" || { echo "FAIL: /work is not a git repository"; exit 1; }
 [[ $(cat "$src/file.txt") == original ]] || { echo "FAIL: the source folder changed"; exit 1; }
 echo "OK: no network, source folder unchanged, /work is a git repository"
+"$here/merge-sweep/merge-bisect" --self-check
+python3 "$here/merge-sweep/train.py" --self-check

@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Find the commit on main after which a pull request's test fails once merged.
+
+    merge-bisect <pr> <test file>
+
+Bisects the first-parent history of main between the merge base of the PR head and the main snapshot
+(SWEEP_DIR/main.sha). Each step merges one main commit with the PR head (git merge-tree, no working tree) and runs
+the test file in the sandbox container (sweep.docker). Prints the first main commit whose merge fails while the
+commit before it passes. A step whose merge conflicts or gives no result is skipped for its nearest neighbour.
+Env: SWEEP_CLONE, SWEEP_DIR, SANDBOX_IMAGE, as for sweep.py.
+"""
+import os
+import re
+import sys
+
+import sweep
+
+
+def merged_rc(commit, ref, test):
+    """0 = pass, 1 = fail, None = cannot judge (merge conflict, timeout or no result)."""
+    merge = sweep.git("merge-tree", "--write-tree", "--no-messages", commit, ref, text=True)
+    if merge.returncode != 0:
+        return None
+    _, res = sweep.parse(sweep.docker([test], merge.stdout.split()[0]))
+    return None if not res else (0 if res[0][0] == 0 else 1)
+
+
+def main():
+    if len(sys.argv) != 3 or not sys.argv[1].isdigit() or not re.fullmatch(r"tests/[\w/.-]+\.py", sys.argv[2]):
+        sys.exit("usage: merge-bisect <pr> <tests/....py>")
+    pr, test = int(sys.argv[1]), sys.argv[2]
+    main_sha = open(os.path.join(sweep.HERE, "main.sha"), encoding="utf-8").read().strip()
+    ref = "refs/sweep/%d" % pr
+    if sweep.git("fetch", "-q", "--no-write-fetch-head", "origin", "+refs/pull/%d/head:%s" % (pr, ref)).returncode:
+        sys.exit("merge-bisect: cannot fetch PR %d" % pr)
+    base = sweep.git("merge-base", main_sha, ref, text=True).stdout.strip()
+    commits = sweep.git("rev-list", "--first-parent", "--reverse", "%s..%s" % (base, main_sha), text=True).stdout.split()
+    if not commits:
+        sys.exit("merge-bisect: the PR head already contains main %s" % main_sha[:9])
+    judge = lambda c: merged_rc(c, ref, test)  # noqa: E731
+    at_base, at_main = merged_rc(base, ref, test), judge(main_sha)
+    print("PR #%d %s on merge base %s: %s | merged with main %s: %s | %d first-parent commits between"
+          % (pr, test, base[:9], {0: "pass", 1: "fail"}.get(at_base, "?"), main_sha[:9],
+             {0: "pass", 1: "fail"}.get(at_main, "?"), len(commits)), flush=True)
+    if at_base != 0 or at_main != 1:
+        sys.exit("merge-bisect: needs pass on the merge base and fail on main; nothing to bisect")
+    lo, hi, steps = sweep.bisect(commits, judge)
+    subject = sweep.git("log", "-1", "--format=%s", commits[hi], text=True).stdout.strip()
+    print("first failing main commit: %s %s (%d steps)" % (commits[hi], subject, steps))
+    last_pass = base if lo < 0 else commits[lo]
+    print("last passing: %s; %s" % (last_pass[:9], "exact" if hi - lo == 1 else
+          "%d commits between could not be judged (merge conflict or no result)" % (hi - lo - 1)))
+
+
+def self_check():
+    """sweep.bisect() on a fake history: commits 0..9, failing from 6 on, commit 6 and 7 unjudgeable."""
+    fails_from, holes = 6, {6, 7}
+    lo, hi, _ = sweep.bisect(list(range(10)), lambda c: None if c in holes else int(c >= fails_from))
+    assert (lo, hi) == (5, 8), (lo, hi)  # 6 and 7 cannot be judged: not exact
+    lo, hi, _ = sweep.bisect(list(range(10)), lambda c: int(c >= 3))
+    assert (lo, hi) == (2, 3), (lo, hi)  # exact
+    lo, hi, _ = sweep.bisect([42], lambda c: 1)
+    assert (lo, hi) == (-1, 0), (lo, hi)  # the merge base passes, the only commit fails
+    print("self-check OK")
+
+
+if __name__ == "__main__":
+    self_check() if sys.argv[1:] == ["--self-check"] else main()

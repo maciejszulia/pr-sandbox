@@ -68,6 +68,26 @@ def parse(out):
     return applied, results
 
 
+def bisect(commits, judge):
+    """commits[-1] fails; the merge base before commits[0] passes.
+
+    Return (lo, hi, steps): commits[hi] is the first commit known to fail and commits[lo] the last known to pass
+    (-1 = the merge base). hi - lo == 1 means exact; otherwise every commit between them was unjudgeable."""
+    lo, hi, steps = -1, len(commits) - 1, 0
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        order = [mid] + [i for d in range(1, hi - lo) for i in (mid + d, mid - d) if lo < i < hi]
+        for i in order:
+            steps += 1
+            rc = judge(commits[i])
+            if rc is not None:
+                break
+        else:
+            return lo, hi, steps  # every commit between lo and hi was unjudgeable
+        lo, hi = (i, hi) if rc == 0 else (lo, i)
+    return lo, hi, steps
+
+
 def tests_for(files):
     """Test files a PR touches: its own tests/ files plus tests/test_<tool>.py for each tool it changes."""
     paths = [f["path"] for f in files]

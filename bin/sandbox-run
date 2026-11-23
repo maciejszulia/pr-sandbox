@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Usage: sandbox-run [--py 3.12|3.13|3.14] <dir> <command>
+# Runs <command> (bash) in a throwaway container: no network, no capabilities, <dir> mounted read-only and
+# copied to /work (tmpfs), so untrusted code never runs on the host and cannot change <dir>.
+# /work becomes a throwaway git repository (one commit) for tests that list tracked files.
+# Env: SANDBOX_IMAGE (default pr-sandbox:py312), SANDBOX_ROOTS (colon-separated folders <dir> must be inside,
+#      default "$HOME/lab:${TMPDIR:-/tmp}"), SANDBOX_MEMORY (default 2g), SANDBOX_CPUS (default 2).
+set -euo pipefail
+img=${SANDBOX_IMAGE:-pr-sandbox:py312}
+if [[ ${1:-} == --py ]]; then
+  case ${2:-} in
+    3.12) ;;
+    3.13|3.14) img="python:$2-slim" ;;
+    *) echo "sandbox-run: --py takes 3.12, 3.13 or 3.14" >&2; exit 2 ;;
+  esac
+  shift 2
+fi
+[[ $# -eq 2 ]] || { echo "usage: sandbox-run [--py 3.12|3.13|3.14] <dir> <command>" >&2; exit 2; }
+dir=$(realpath -e -- "$1")
+allowed=0
+IFS=: read -ra roots <<< "${SANDBOX_ROOTS:-$HOME/lab:${TMPDIR:-/tmp}}"
+for root in "${roots[@]}"; do
+  root=$(realpath -m -- "$root")
+  [[ $dir == "$root"/* ]] && allowed=1
+done
+(( allowed )) || { echo "sandbox-run: $dir is not inside SANDBOX_ROOTS" >&2; exit 2; }
+exec docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges --pids-limit 512 \
+  --memory "${SANDBOX_MEMORY:-2g}" --cpus "${SANDBOX_CPUS:-2}" --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
+  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+  -v "$dir:/src:ro" --tmpfs /work:exec,size=3g,mode=1777 --tmpfs /tmp:exec,size=1g,mode=1777 "$img" \
+  bash -c 'cp -r /src/. /work/ || exit 125
+if command -v git >/dev/null; then
+  rm -rf /work/.git
+  git init -q /work && git -C /work add -A && git -C /work -c user.name=sandbox -c user.email=sandbox@localhost commit -qm snapshot
+fi
+cd /work && eval "$1"' sandbox-run "$2"

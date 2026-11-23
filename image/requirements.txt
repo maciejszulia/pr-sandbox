@@ -1,0 +1,5 @@
+# Test packages of the target repository. Replace this file with its tests/requirements.txt before the build.
+# These pins are the ones ItsNotRexed/Leonida used on 2026-11-23.
+pytest==9.2.0
+numpy==2.5.5
+Pillow==13.0.0

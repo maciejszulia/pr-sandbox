@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Usage: merge-check <pr> <test file> [main|merged|head|all] [extra pytest/unittest args...]
+# Runs <test file> on the main snapshot (main.sha), on main merged with the PR head (git merge-tree, the
+# same 3-way merge GitHub does) and on the PR head alone, and prints the last 60 lines of each run.
+# Repo code runs only in a --network none container; the tree is streamed in with git archive.
+set -euo pipefail
+HERE=$(realpath -m -- "${SWEEP_DIR:-sweep-state}")
+CLONE=${SWEEP_CLONE:?set SWEEP_CLONE to a full clone of the repository}
+[[ $# -ge 2 ]] || { echo "usage: merge-check <pr> <test file> [main|merged|head|all] [args...]" >&2; exit 2; }
+pr=$1; test=$2; which=${3:-all}; shift $(( $# >= 3 ? 3 : 2 )); extra="$*"
+[[ $pr =~ ^[0-9]+$ ]] || { echo "merge-check: PR must be a number" >&2; exit 2; }
+[[ $test =~ ^tests/[A-Za-z0-9_/.-]+\.py$ ]] || { echo "merge-check: test must be tests/....py" >&2; exit 2; }
+main=$(cat "$HERE/main.sha")
+ref=refs/sweep/$pr
+git -C "$CLONE" fetch -q --no-write-fetch-head origin "+refs/pull/$pr/head:$ref"
+head=$(git -C "$CLONE" rev-parse "$ref")
+run() {  # $1 label, $2 tree-ish
+  echo "===== $1 ($2)"
+  git -C "$CLONE" archive --format=tar "$2" | docker run -i --rm --network none --cap-drop ALL \
+    --security-opt no-new-privileges --pids-limit 512 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" \
+    -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 --tmpfs /work:exec,size=3g,mode=1777 \
+    --tmpfs /tmp:exec,size=1g,mode=1777 "${SANDBOX_IMAGE:-pr-sandbox:py312}" bash -c '
+      tar -x -C /work && cd /work || exit 125
+      export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="*"
+      git init -q . && git add -A && git -c user.name=sweep -c user.email=sweep@localhost commit -qm snapshot
+      t=$1; shift
+      [ -f "$t" ] || { echo "missing: $t"; exit 0; }
+      case $t in
+        tests/semantic/*) timeout 300 python -m unittest discover -s tests/semantic -p "$(basename "$t")" -v "$@" ;;
+        *) if grep -Eq "^import pytest|^ *HAVE_NUMPY =" "$t" || ! grep -q __main__ "$t"; then
+             timeout 300 python -m pytest -q -p no:cacheprovider "$t" "$@"
+           else
+             timeout 300 python -I "$t" "$@"
+           fi ;;
+      esac 2>&1 | tail -60
+      echo "exit=${PIPESTATUS[0]}"' merge-check "$test" $extra 2>&1 | grep -v 'swap limit'
+}
+case $which in main|all) run "main snapshot" "$main" ;; esac
+if [[ $which == merged || $which == all ]]; then
+  if tree=$(git -C "$CLONE" merge-tree --write-tree --no-messages "$main" "$ref"); then
+    run "main + PR #$pr head ${head:0:9}" "$tree"
+  else
+    echo "===== main + PR #$pr: merge conflict"
+  fi
+fi
+case $which in head|all) run "PR #$pr head" "$head" ;; esac

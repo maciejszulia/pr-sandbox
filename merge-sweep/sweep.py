@@ -9,7 +9,7 @@
                      file on main (cached baseline)
 
 Env: SWEEP_REPO (owner/name), SWEEP_CLONE (a full clone of it), SWEEP_DIR (state, default ./sweep-state),
-     SANDBOX_IMAGE (default pr-sandbox:py312), WORKERS (parallel containers, default 3).
+     SANDBOX_IMAGE (default pullrequest-sandbox:py312), WORKERS (parallel containers, default 3).
 Writes in SWEEP_DIR:
   results.jsonl     one record per PR: {"pr", "applied", "head", "tests": [[rc, file, first failure line], ...]}
   candidates.jsonl  one record per suspect: the test passes on main (or is new) and fails with the PR merged
@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.abspath(os.environ.get("SWEEP_DIR", "sweep-state"))
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-IMAGE = os.environ.get("SANDBOX_IMAGE", "pr-sandbox:py312")
+IMAGE = os.environ.get("SANDBOX_IMAGE", "pullrequest-sandbox:py312")
 REPO = os.environ.get("SWEEP_REPO", "")
 WORKERS = int(os.environ.get("WORKERS", "3"))
 LOCK = threading.Lock()

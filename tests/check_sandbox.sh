@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Self-check for bin/sandbox-run: the container reaches no network, the source folder stays unchanged and /work is
-# a git repository. Needs Docker and the image (SANDBOX_IMAGE, default pr-sandbox:py312).
+# a git repository. Needs Docker and the image (SANDBOX_IMAGE, default pullrequest-sandbox:py312).
 set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
 src=$(mktemp -d "${TMPDIR:-/tmp}/sandbox-check.XXXXXX")

@@ -3,10 +3,10 @@
 # Runs <command> (bash) in a throwaway container: no network, no capabilities, <dir> mounted read-only and
 # copied to /work (tmpfs), so untrusted code never runs on the host and cannot change <dir>.
 # /work becomes a throwaway git repository (one commit) for tests that list tracked files.
-# Env: SANDBOX_IMAGE (default pr-sandbox:py312), SANDBOX_ROOTS (colon-separated folders <dir> must be inside,
+# Env: SANDBOX_IMAGE (default pullrequest-sandbox:py312), SANDBOX_ROOTS (colon-separated folders <dir> must be inside,
 #      default "$HOME/lab:${TMPDIR:-/tmp}"), SANDBOX_MEMORY (default 2g), SANDBOX_CPUS (default 2).
 set -euo pipefail
-img=${SANDBOX_IMAGE:-pr-sandbox:py312}
+img=${SANDBOX_IMAGE:-pullrequest-sandbox:py312}
 if [[ ${1:-} == --py ]]; then
   case ${2:-} in
     3.12) ;;

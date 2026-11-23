@@ -19,7 +19,7 @@ run() {  # $1 label, $2 tree-ish
   git -C "$CLONE" archive --format=tar "$2" | docker run -i --rm --network none --cap-drop ALL \
     --security-opt no-new-privileges --pids-limit 512 --memory 2g --cpus 2 --user "$(id -u):$(id -g)" \
     -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 --tmpfs /work:exec,size=3g,mode=1777 \
-    --tmpfs /tmp:exec,size=1g,mode=1777 "${SANDBOX_IMAGE:-pr-sandbox:py312}" bash -c '
+    --tmpfs /tmp:exec,size=1g,mode=1777 "${SANDBOX_IMAGE:-pullrequest-sandbox:py312}" bash -c '
       tar -x -C /work && cd /work || exit 125
       export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="*"
       git init -q . && git add -A && git -c user.name=sweep -c user.email=sweep@localhost commit -qm snapshot

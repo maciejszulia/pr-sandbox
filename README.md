@@ -200,3 +200,7 @@ Which commit on `main` breaks which open pull request:
 ## License and author
 
 MIT. Maciej Szulia.
+
+## Documentation
+
+- [Architecture (arc42, diagrams, decision records)](docs/architecture/README.md)
